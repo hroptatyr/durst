@@ -223,7 +223,7 @@ fprint_pos(pos_t pos, double nav, FILE *whither)
 
 		fprintf(whither, "FUT %s\t\
 %.4f (%.4f)\t* %.4f\t@ %.4f/%.4f\t\
-soft %.4f\thard %.4f\tctr_soft %.4f\t%.6f v %.6f\n",
+soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\t%.6e v %.6e\n",
 			pos->fut.hdr.sym,
 			pos->fut.pos.hard,
 			pos->fut.pos.soft,
@@ -233,7 +233,9 @@ soft %.4f\thard %.4f\tctr_soft %.4f\t%.6f v %.6f\n",
 			pos->fut.term.soft,
 			pos->fut.term.hard,
 			pos->fut.reba_soft,
-			ex, pos->fut.band.med);
+			ex, pos->fut.band.med,
+			ex / pos->fut.mult / pos->fut.f_mkt.stl,
+			pos->fut.band.med / pos->fut.mult / pos->fut.f_mkt.stl);
 		break;
 	}
 	}
