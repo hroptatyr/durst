@@ -72,7 +72,11 @@ __asgn(double x, double v)
 static double
 fut_value_fun(urs_fut_pos_t fp, double contracts)
 {
+#if !defined ROLAND_EXP
 	return (fp->f_mkt.stl - fp->s_mkt.stl) * contracts * fp->mult;
+#else
+	return 0;
+#endif
 }
 
 static double
@@ -118,7 +122,7 @@ fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 static double
 fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 {
-	return fp->band.med * nav;
+	return fp->band.med * nav - fp->pos.hard;
 }
 #endif	/* !ROLAND_EXP */
 
