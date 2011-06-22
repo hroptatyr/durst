@@ -10,6 +10,7 @@
 #endif	/* DEBUG_FLAG */
 
 #define FEE_AWARE	1
+#define ROLAND_EXP	1
 
 /* We employ newton's method, as follows:
  * We assume last day's rebalancing was successful and the following holds
@@ -83,7 +84,11 @@ fut_value(urs_fut_pos_t fp)
 static double
 fut_deriv(urs_fut_pos_t fp, double dpos)
 {
+#if !defined ROLAND_EXP
 	double onev = fut_value_fun(fp, 1);
+#else
+	double onev = 1;
+#endif
 #if defined FEE_AWARE
 	double beta = fp->band.med;
 	return onev + __asgn(dpos, beta * fp->fee);
@@ -96,8 +101,13 @@ static double
 fut_weight(urs_fut_pos_t fp, double dpos, double nav)
 {
 	double beta = fp->band.med;
+#if !defined ROLAND_EXP
 	double npv = fut_value_fun(fp, fp->pos.hard);
 	double dpv = fut_value_fun(fp, dpos);
+#else
+	double npv = fp->pos.hard;
+	double dpv = dpos;
+#endif
 #if defined FEE_AWARE
 	return dpv + beta * fabs(dpos) * fp->fee - beta * nav + npv;
 #else  /* !FEE_AWARE */
