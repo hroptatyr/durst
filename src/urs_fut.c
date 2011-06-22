@@ -199,6 +199,13 @@ urs_fut_value(urs_fut_pos_t fp)
 	return fut_value(fp);
 }
 
+DEFUN double
+urs_fut_setl(urs_fut_pos_t fp)
+{
+	double contracts = fp->pos.soft + fp->pos.hard;
+	return (fp->f_mkt.stl - fp->s_mkt.stl) * contracts * fp->mult;
+}
+
 #if defined TEST
 static struct __fut_pos_s GI = {
 	.hdr = {.sym = "GI___CCS"},
