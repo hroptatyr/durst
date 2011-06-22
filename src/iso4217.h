@@ -205,6 +205,10 @@ pfack_4217_id(const_pfack_4217_t ptr)
 #define PFACK_4217_CHF_IDX	((pfack_4217_id_t)29)
 #define PFACK_4217_CHF		(PFACK_4217(PFACK_4217_CHF_IDX))
 #define PFACK_4217_CHF_SYM	(PFACK_4217_SYM(PFACK_4217_CHF_IDX))
+/* CHF */
+#define PFACK_4217_SGD_IDX	((pfack_4217_id_t)129)
+#define PFACK_4217_SGD		(PFACK_4217(PFACK_4217_SGD_IDX))
+#define PFACK_4217_SGD_SYM	(PFACK_4217_SYM(PFACK_4217_SGD_IDX))
 
 /* precious metals */
 /* gold */
