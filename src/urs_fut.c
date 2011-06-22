@@ -84,11 +84,7 @@ fut_value(urs_fut_pos_t fp)
 static double
 fut_deriv(urs_fut_pos_t fp, double dpos)
 {
-#if !defined ROLAND_EXP
 	double onev = fut_value_fun(fp, 1);
-#else
-	double onev = 1;
-#endif
 #if defined FEE_AWARE
 	double beta = fp->band.med;
 	return onev + __asgn(dpos, beta * fp->fee);
@@ -101,13 +97,8 @@ static double
 fut_weight(urs_fut_pos_t fp, double dpos, double nav)
 {
 	double beta = fp->band.med;
-#if !defined ROLAND_EXP
 	double npv = fut_value_fun(fp, fp->pos.hard);
 	double dpv = fut_value_fun(fp, dpos);
-#else
-	double npv = fp->pos.hard;
-	double dpv = dpos;
-#endif
 #if defined FEE_AWARE
 	return dpv + beta * fabs(dpos) * fp->fee - beta * nav + npv;
 #else  /* !FEE_AWARE */
@@ -115,6 +106,7 @@ fut_weight(urs_fut_pos_t fp, double dpos, double nav)
 #endif	/* FEE_AWARE */
 }
 
+#if !defined ROLAND_EXP
 static double
 fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 {
@@ -122,6 +114,13 @@ fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 	double fpdv = fut_deriv(fp, dpos);
 	return dpos - fpv / fpdv;
 }
+#else
+static double
+fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
+{
+	return fp->band.med * nav;
+}
+#endif	/* !ROLAND_EXP */
 
 static double
 fut_round(urs_fut_pos_t fp)
@@ -169,11 +168,11 @@ urs_fut_relanav(urs_fut_pos_t fp, const double nav)
 
 		dpos = fp->pos.soft = fut_newt_step(fp, dpos, nav + err);
 		/* value in base currency */
-		v = fut_value(fp) * fp->val_fac;
+		v = fut_value(fp) / fp->val_fac;
 		/* round the whole shebang and compute trades */
 		opr = dpr;
 		dpr = fp->pos.soft = fut_round(fp);
-		nv = (fp->term.soft = fut_value(fp)) * fp->val_fac;
+		nv = (fp->term.soft = fut_value(fp)) / fp->val_fac;
 		cost = fut_cost(fp);
 
 		err = tgt - (nv + (cost.fee + cost.spread) * fp->val_fac);
@@ -183,6 +182,9 @@ urs_fut_relanav(urs_fut_pos_t fp, const double nav)
 
 		/* leave a note about total soft cash for this transaction */
 		fp->reba_soft = -(fut_value_fun(fp, dpr) + cost.spread);
+#if defined ROLAND_EXP
+		break;
+#endif	/* ROLAND_EXP */
 	}
 	return;
 }
