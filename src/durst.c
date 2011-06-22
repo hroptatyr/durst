@@ -724,7 +724,7 @@ main(int argc, char *argv[])
 
 	inpf = read_pf(stdin);
 	/* establish base currency */
-	set_base_currency(inpf, PFACK_4217_USD);
+	set_base_currency(inpf, PFACK_4217_EUR);
 
 	if (!data_complete_p(inpf)) {
 		/* just refuse to do stuff*/
