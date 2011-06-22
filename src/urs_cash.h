@@ -29,6 +29,9 @@ struct __cash_pos_s {
 	double soft_ini;
 	double hard_ini;
 
+	/* keep track of navs */
+	double term_nav;
+
 	/* band, if regarded as asset, use -1 if not */
 	struct __wei_s band;
 };

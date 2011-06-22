@@ -74,7 +74,7 @@ pos_soft_val(pos_t p)
 			p->fut.term.soft * p->fut.val_fac;
 	case POSTY_CASH:
 		return p->cash.base.soft =
-			p->cash.term.soft * p->cash.s_mkt.stl;
+			p->cash.term.soft / p->cash.s_mkt.stl;
 	default:
 		return 0.0;
 	}
@@ -91,7 +91,7 @@ pos_hard_val(pos_t p)
 		return 0.0;
 	case POSTY_CASH:
 		return p->cash.base.hard =
-			p->cash.term.hard * p->cash.s_mkt.stl;
+			p->cash.term.hard / p->cash.s_mkt.stl;
 	default:
 		return 0.0;
 	}
@@ -137,6 +137,13 @@ reba_relanav_check(pf_t pf, double nav)
 		default:
 			continue;
 
+		case POSTY_CASH:
+			/* convert nav to term_nav, needed for the rolandique
+			 * definition of exposures */
+			pf->poss[i].cash.term_nav =
+				nav * pf->poss[i].cash.s_mkt.stl;
+			break;
+
 		case POSTY_FUT:
 			soft = pos_soft_val(pf->poss + i);
 			hard = pos_hard_val(pf->poss + i);
@@ -151,6 +158,7 @@ reba_relanav_check(pf_t pf, double nav)
 			    r_s > pf->poss[i].fut.band.hi) {
 				return false;
 			}
+			break;
 		}
 	}
 	return true;
