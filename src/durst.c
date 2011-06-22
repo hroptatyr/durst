@@ -110,6 +110,24 @@ compute_pf_val(pf_t pf)
 	return pf->val.soft + pf->val.hard;
 }
 
+static urs_cash_pos_t
+find_cash_pos(pf_t pf, pos_t pos)
+{
+	switch (pos->ty) {
+	case POSTY_CASH:
+		return &pos->cash;
+	case POSTY_FUT:
+		for (size_t i = 0; i < pf->nposs; i++) {
+			if (pf->poss[i].ty == POSTY_CASH &&
+			    pf->poss[i].cash.tccy == pos->fut.ccy) {
+				return &pf->poss[i].cash;
+			}
+		}
+	default:
+		return NULL;
+	}
+}
+
 /* future rebalancing relative to the NAV of the portfolio */
 static int
 reba_relanav_pos(pos_t pos, double nav)
@@ -177,7 +195,10 @@ reba_relanav(pf_t pf)
 	}
 
 	for (size_t i = 0; i < pf->nposs; i++) {
-		reba_relanav_pos(pf->poss + i, nav);
+		/* the nav we give here is relative to the ccy of the pos */
+		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
+		double tnav = nav * cp->s_mkt.stl;
+		reba_relanav_pos(pf->poss + i, tnav);
 	}
 	return;
 }
@@ -190,6 +211,9 @@ FUT	CL2	USD	100	2900	22.64	22.66	22.66	0	0	0	0.48	0.50	0.51	1.8
 FUT	XAU	USD	100	100	1533.20	1533.40	1532.0	0	0	0	0.00	0.01	0.1	3.0
 CASH	USD	USD	0.0	440000.0	1.41025	1.41035	1.41020	-1	-1	-1	0.0	0.0001
 #endif
+
+static size_t nmy4217 = 0;
+static struct pfack_4217_s my4217[16];
 
 static void
 free_pf(pf_t pf)
@@ -257,6 +281,16 @@ fprint_poss(pf_t pf, FILE *whither)
 
 	fprintf(whither, "PORTFOLIO\tsoft %2.4f\thard %2.4f\tnav %.4f\n",
 		pf->val.soft, pf->val.hard, nav);
+	for (size_t i = 0; i < pf->nposs; i++) {
+		if (pf->poss[i].ty == POSTY_CASH) {
+			fprintf(whither, "\
+TERM\t%s\tsoft %2.4f\thard %2.4f\tnav %.4f\n",
+				pf->poss[i].cash.tccy->sym,
+				pf->val.soft * pf->poss[i].cash.s_mkt.stl,
+				pf->val.hard * pf->poss[i].cash.s_mkt.stl,
+				nav * pf->poss[i].cash.s_mkt.stl);
+		}
+	}
 	for (size_t i = 0; i < pf->nposs; i++) {
 		fprint_pos(pf->poss + i, nav, whither);
 	}
@@ -444,6 +478,11 @@ __find_4217(const char *sym)
 			return PFACK_4217(i);
 		}
 	}
+	for (size_t j = 0; j < nmy4217; j++) {
+		if (strncmp(sym, my4217[j].sym, 3) == 0) {
+			return my4217 + j;
+		}
+	}
 	return NULL;
 }
 
@@ -543,7 +582,12 @@ __parse_cash(urs_cash_pos_t cp, const char *line)
 	/* frob ccy */
 	line = p;
 	p = __skip_behind_tab(line);
-	cp->tccy = __find_4217(line);
+	if ((cp->tccy = __find_4217(line)) == NULL) {
+		const_pfack_4217_t res = my4217 + nmy4217++;
+		memcpy((char*)res, line, 3);
+		*((char*)res + 3) = '\0';
+		cp->tccy = res;
+	}
 
 	/* frob soft */
 	line = p;
