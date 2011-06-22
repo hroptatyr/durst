@@ -762,6 +762,8 @@ main(int argc, char *argv[])
 		double new_nav = 0.0;
 		double old_nav;
 		double old_old_nav;
+		size_t step = 0;
+		const size_t max_steps = 10;
 
 		URS_DEBUG("rebalancing ...\n");
 
@@ -781,9 +783,7 @@ main(int argc, char *argv[])
 			reco_poss_reset(inpf);
 
 			URS_DEBUG("OLD v NEW %.4f v %.4f\n", old_nav, new_nav);
-		} while (old_nav != new_nav ||
-			 abs(new_nav - old_nav) >
-			 abs(new_nav - old_old_nav));
+		} while (abs(old_nav - new_nav) > 0.01 && step++ < max_steps);
 
 		/* reconciliation, could be a CLI option */
 		reco_poss(inpf);
