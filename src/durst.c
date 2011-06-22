@@ -66,12 +66,16 @@ pos_soft_val(pos_t p)
 {
 	switch (p->ty) {
 	case POSTY_FUT:
+#if 0
 		if (p->fut.term.soft == 0.0) {
 			/* we need a soft val first */
 			p->fut.term.soft = urs_fut_value(&p->fut);
 		}
 		return p->fut.base.soft =
 			p->fut.term.soft * p->fut.val_fac;
+#else
+		return p->fut.base.soft = p->fut.term.soft = 0.0;
+#endif
 	case POSTY_CASH:
 		return p->cash.base.soft =
 			p->cash.term.soft / p->cash.s_mkt.stl;
@@ -158,8 +162,6 @@ reba_relanav_check(pf_t pf, double nav)
 		case POSTY_CASH:
 			/* convert nav to term_nav, needed for the rolandique
 			 * definition of exposures */
-			pf->poss[i].cash.term_nav =
-				nav * pf->poss[i].cash.s_mkt.stl;
 			break;
 
 		case POSTY_FUT:
@@ -183,13 +185,8 @@ reba_relanav_check(pf_t pf, double nav)
 }
 
 static void
-reba_relanav(pf_t pf)
+reba_relanav(pf_t pf, double nav)
 {
-	double nav;
-
-	/* cash assets constitute the nav as well, option? */
-	nav = compute_pf_val(pf);
-
 	if (reba_relanav_check(pf, nav)) {
 		return;
 	}
@@ -236,7 +233,7 @@ free_pf(pf_t pf)
 }
 
 static void
-fprint_pos(pos_t pos, double nav, FILE *whither)
+fprint_pos(pf_t pf, pos_t pos, double nav, FILE *whither)
 {
 	switch (pos->ty) {
 	case POSTY_UNK:
@@ -251,11 +248,13 @@ fprint_pos(pos_t pos, double nav, FILE *whither)
 		break;
 
 	case POSTY_FUT: {
-		double ex = pos->fut.base.soft / nav;
+		urs_cash_pos_t cp = find_cash_pos(pf, pos);
+		double tnav = nav * cp->s_mkt.stl;
+		double ex = (pos->fut.pos.hard + pos->fut.pos.soft) / tnav;
 
 		fprintf(whither, "FUT %s\t\
 %.4f (%.4f)\t* %.4f\t@ %.4f/%.4f\t\
-soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\t%.6e v %.6e\n",
+soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\n",
 			pos->fut.hdr.sym,
 			pos->fut.pos.hard,
 			pos->fut.pos.soft,
@@ -265,9 +264,7 @@ soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\t%.6e v %.6e\n",
 			pos->fut.term.soft,
 			pos->fut.term.hard,
 			pos->fut.reba_soft,
-			ex, pos->fut.band.med,
-			ex / pos->fut.mult / pos->fut.f_mkt.stl,
-			pos->fut.band.med / pos->fut.mult / pos->fut.f_mkt.stl);
+			ex, pos->fut.band.med);
 		break;
 	}
 	}
@@ -292,7 +289,7 @@ TERM\t%s\tsoft %2.4f\thard %2.4f\tnav %.4f\n",
 		}
 	}
 	for (size_t i = 0; i < pf->nposs; i++) {
-		fprint_pos(pf->poss + i, nav, whither);
+		fprint_pos(pf, pf->poss + i, nav, whither);
 	}
 	return;
 }
@@ -403,6 +400,36 @@ reco_poss(pf_t pf)
 		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
 			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
 			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
+		}
+	}
+	return;
+}
+
+static void
+reco_poss_step(pf_t pf)
+{
+/* go through all cash positions and gather any softs left over from
+ * rebalancing, book it into the soft account of the cash position. */
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
+			p->cash.soft_ini = p->cash.term.soft;
+			p->cash.hard_ini = p->cash.term.hard;
+			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
+			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
+		}
+	}
+	return;
+}
+
+static void
+reco_poss_reset(pf_t pf)
+{
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
+			p->cash.term.soft = p->cash.soft_ini;
+			p->cash.term.hard = p->cash.hard_ini;
 		}
 	}
 	return;
@@ -732,16 +759,42 @@ main(int argc, char *argv[])
 	} else if (no_reba) {
 		fprint_poss(inpf, stdout);
 	} else {
+		double new_nav = 0.0;
+		double old_nav;
+		double old_old_nav;
+
 		URS_DEBUG("rebalancing ...\n");
-		reba_relanav(inpf);
+
+		reco_poss_step(inpf);
+		/* cash assets constitute the nav as well, option? */
+		old_nav = new_nav = compute_pf_val(inpf);
+		reco_poss_reset(inpf);
+
+		do {
+			old_old_nav = old_nav;
+			old_nav = new_nav;
+			reba_relanav(inpf, old_nav);
+
+			reco_poss_step(inpf);
+			/* cash assets constitute the nav as well, option? */
+			new_nav = compute_pf_val(inpf);
+			reco_poss_reset(inpf);
+
+			URS_DEBUG("OLD v NEW %.4f v %.4f\n", old_nav, new_nav);
+		} while (old_nav != new_nav ||
+			 abs(new_nav - old_nav) >
+			 abs(new_nav - old_old_nav));
+
 		/* reconciliation, could be a CLI option */
 		reco_poss(inpf);
 		fprint_poss(inpf, stderr);
 
 		/* print a list of trades so we can settle this crap */
 		fprint_trades(inpf, stdout);
+#if 0
 		/* for the moment we need info too */
 		fprint_info(inpf, stdout);
+#endif
 	}
 
 	free_pf(inpf);
