@@ -337,6 +337,48 @@ fprint_trades(pf_t pf, FILE *whither)
 }
 
 static void
+fprint_trades_fixml(pf_t pf, FILE *whither)
+{
+	/* traverse the soft pos's to emit trades */
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+
+		switch (p->ty) {
+		case POSTY_CASH: {
+			double d = p->cash.term.hard - p->cash.hard_ini;
+			if (d > 0.0) {
+				fprintf(whither, "CLEAR\t%.4f\t%s\n",
+					d, p->cash.hdr.sym);
+			} else if (d < 0.0) {
+				fprintf(whither, "CLEAR\t%.4f\t%s\n",
+					d, p->cash.hdr.sym);
+			}
+		}
+		case POSTY_FUT: {
+			if (p->fut.pos.soft > 0.0 &&
+			    p->fut.pos.hard < 0.0) {
+				fprintf(whither, "SHORT_BUY\t%.4f\t%s\n",
+					p->fut.pos.soft, p->fut.hdr.sym);
+			} else if (p->fut.pos.soft > 0.0) {
+				fprintf(whither, "BUY\t%.4f\t%s\n",
+					p->fut.pos.soft, p->fut.hdr.sym);
+			} else if (p->fut.pos.soft < 0.0 &&
+				   p->fut.pos.hard > 0.0) {
+				fprintf(whither, "SELL\t%.4f\t%s\n",
+					-p->fut.pos.soft, p->fut.hdr.sym);
+			} else if (p->fut.pos.soft < 0.0) {
+				fprintf(whither, "SHORT_SELL\t%.4f\t%s\n",
+					-p->fut.pos.soft, p->fut.hdr.sym);
+			}
+		}
+		default:
+			break;
+		}
+	}
+	return;
+}
+
+static void
 fprint_info(pf_t pf, FILE *whither)
 {
 	/* traverse the soft pos's to emit trades */
@@ -745,6 +787,57 @@ data_complete_p(pf_t pf)
 #include "durst-clo.h"
 #include "durst-clo.c"
 
+static void
+__work(pf_t pf, enum enum_outfmt of)
+{
+	double new_nav = 0.0;
+	double old_nav;
+	double old_old_nav;
+	size_t step = 0;
+	const size_t max_steps = 10;
+
+	URS_DEBUG("rebalancing ...\n");
+
+	reco_poss_step(pf);
+	/* cash assets constitute the nav as well, option? */
+	old_nav = new_nav = compute_pf_val(pf);
+	reco_poss_reset(pf);
+
+	do {
+		old_old_nav = old_nav;
+		old_nav = new_nav;
+		reba_relanav(pf, old_nav);
+
+		reco_poss_step(pf);
+		/* cash assets constitute the nav as well, option? */
+		new_nav = compute_pf_val(pf);
+		reco_poss_reset(pf);
+
+		URS_DEBUG("OLD v NEW %.4f v %.4f\n", old_nav, new_nav);
+	} while (abs(old_nav - new_nav) > 0.01 && step++ < max_steps);
+
+	/* reconciliation, could be a CLI option */
+	reco_poss(pf);
+	fprint_poss(pf, stderr);
+
+	/* print a list of trades so we can settle this crap */
+	switch (of) {
+	case outfmt_arg_csv:
+		fprint_trades(pf, stdout);
+		break;
+	case outfmt_arg_fixml:
+		fprint_trades_fixml(pf, stdout);
+		break;
+	default:
+		break;
+	}
+#if 0
+	/* for the moment we need info too */
+	fprint_info(pf, stdout);
+#endif
+	return;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -760,48 +853,24 @@ main(int argc, char *argv[])
 	/* establish base currency */
 	set_base_currency(inpf, PFACK_4217_EUR);
 
+	/* adapt levers */
+	if (argi->lever_given) {
+		for (size_t i = 0; i < pf->nposs; i++) {
+			if (pf->poss[i].ty) {
+				pf->poss[i].fut.band.lo *= argi->lever_arg;
+				pf->poss[i].fut.band.med *= argi->lever_arg;
+				pf->poss[i].fut.band.hi *= argi->lever_arg;
+			}
+		}
+	}
+
 	if (!data_complete_p(inpf)) {
 		/* just refuse to do stuff*/
 		fprintf(stderr, "DATA INCOMPLETE ... CUNT OFF\n");
 	} else if (argi->nav_only_given) {
 		fprint_poss(inpf, stdout);
 	} else {
-		double new_nav = 0.0;
-		double old_nav;
-		double old_old_nav;
-		size_t step = 0;
-		const size_t max_steps = 10;
-
-		URS_DEBUG("rebalancing ...\n");
-
-		reco_poss_step(inpf);
-		/* cash assets constitute the nav as well, option? */
-		old_nav = new_nav = compute_pf_val(inpf);
-		reco_poss_reset(inpf);
-
-		do {
-			old_old_nav = old_nav;
-			old_nav = new_nav;
-			reba_relanav(inpf, old_nav);
-
-			reco_poss_step(inpf);
-			/* cash assets constitute the nav as well, option? */
-			new_nav = compute_pf_val(inpf);
-			reco_poss_reset(inpf);
-
-			URS_DEBUG("OLD v NEW %.4f v %.4f\n", old_nav, new_nav);
-		} while (abs(old_nav - new_nav) > 0.01 && step++ < max_steps);
-
-		/* reconciliation, could be a CLI option */
-		reco_poss(inpf);
-		fprint_poss(inpf, stderr);
-
-		/* print a list of trades so we can settle this crap */
-		fprint_trades(inpf, stdout);
-#if 0
-		/* for the moment we need info too */
-		fprint_info(inpf, stdout);
-#endif
+		__work(inpf, argi->outfmt_arg);
 	}
 
 	free_pf(inpf);

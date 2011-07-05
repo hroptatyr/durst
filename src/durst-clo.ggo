@@ -12,4 +12,7 @@ stock bid/ask/settlement quotes, and rb/ra/rs are reference bid/ask/settles"
 option "base" b "Base currency" string optional
 option "nav-only" n "No rebalancing, compute the nav and exit"
 option "outfmt" f "Output orders in format" values="csv","fixml"
-	default="csv"
+	default="csv" enum
+option "lever" l "Multiply levers with this constant" double
+	default="1.0" optional
+
