@@ -855,11 +855,11 @@ main(int argc, char *argv[])
 
 	/* adapt levers */
 	if (argi->lever_given) {
-		for (size_t i = 0; i < pf->nposs; i++) {
-			if (pf->poss[i].ty) {
-				pf->poss[i].fut.band.lo *= argi->lever_arg;
-				pf->poss[i].fut.band.med *= argi->lever_arg;
-				pf->poss[i].fut.band.hi *= argi->lever_arg;
+		for (size_t i = 0; i < inpf->nposs; i++) {
+			if (inpf->poss[i].ty) {
+				inpf->poss[i].fut.band.lo *= argi->lever_arg;
+				inpf->poss[i].fut.band.med *= argi->lever_arg;
+				inpf->poss[i].fut.band.hi *= argi->lever_arg;
 			}
 		}
 	}
