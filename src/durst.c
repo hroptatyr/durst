@@ -738,15 +738,18 @@ data_complete_p(pf_t pf)
  * FUT name ccy pos fbid fask fstl rbid rask rstl lo tgt hi fee
  * CASH name ccy soft_pos hard_pos bid ask stl lo tgt hi soft_fee hard_fee
  */
+#include "durst-clo.h"
+#include "durst-clo.c"
+
 int
 main(int argc, char *argv[])
 {
 	pf_t inpf;
-	int no_reba = 0;
+	struct gengetopt_args_info argi[1];
 
 	/* parse command line and shite, preliminary */
-	if (argv[1] && strcmp(argv[1], "-n") == 0) {
-		no_reba = 1;
+	if (cmdline_parser(argc, argv, argi)) {
+		exit(1);
 	}
 
 	inpf = read_pf(stdin);
@@ -756,7 +759,7 @@ main(int argc, char *argv[])
 	if (!data_complete_p(inpf)) {
 		/* just refuse to do stuff*/
 		fprintf(stderr, "DATA INCOMPLETE ... CUNT OFF\n");
-	} else if (no_reba) {
+	} else if (argi->nav_only_given) {
 		fprint_poss(inpf, stdout);
 	} else {
 		double new_nav = 0.0;

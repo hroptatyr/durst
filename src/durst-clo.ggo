@@ -1,0 +1,8 @@
+args ""
+package "durst"
+usage "durst [options]"
+description "Daily rebalancing tool."
+
+option "nav-only" n "No rebalancing, compute the nav and exit"
+option "outfmt" f "Output orders in format" values="csv","fixml"
+	default="csv"
