@@ -10,9 +10,9 @@ where fb/fa/fs are future bid/ask/settlement quotes, cb/ca/cs are
 stock bid/ask/settlement quotes, and rb/ra/rs are reference bid/ask/settles"
 
 option "base" b "Base currency" string optional
-option "nav-only" n "No rebalancing, compute the nav and exit"
+option "nav-only" n "No rebalancing, compute the nav and exit" optional
 option "outfmt" f "Output orders in format" values="csv","fixml"
-	default="csv" enum
+	default="csv" enum optional
 option "lever" l "Multiply levers with this constant" double
 	default="1.0" optional
 
