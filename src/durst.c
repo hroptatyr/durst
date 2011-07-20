@@ -137,7 +137,6 @@ static int
 reba_relanav_pos(pos_t pos, double nav)
 {
 	switch (pos->ty) {
-		double new;
 	default:
 		break;
 
@@ -152,33 +151,37 @@ static bool
 reba_relanav_check(pf_t pf, double nav)
 {
 	for (size_t i = 0; i < pf->nposs; i++) {
-		double soft, hard;
-		double r_s, r_h;
+		double lo, hi;
+		double ratio;
 
 		switch (pf->poss[i].ty) {
+			double hard, soft;
 		default:
 			continue;
 
 		case POSTY_CASH:
 			/* convert nav to term_nav, needed for the rolandique
 			 * definition of exposures */
+			soft = pf->poss[i].cash.base.soft;
+			hard = pf->poss[i].cash.base.hard;
+
+			ratio = (soft + hard) / nav;
+			lo = pf->poss[i].cash.band.lo;
+			hi = pf->poss[i].cash.band.hi;
 			break;
 
 		case POSTY_FUT:
-			soft = pos_soft_val(pf->poss + i);
-			hard = pos_hard_val(pf->poss + i);
+			soft = pf->poss[i].fut.pos.soft;
+			hard = pf->poss[i].fut.pos.hard;
 
-			r_s = soft / nav;
-			URS_DEBUG("soft %2.4f  nav %2.4f\n", soft, nav);
-			r_h = hard / nav;
-
-			URS_DEBUG("r_s %2.4f  r_h %2.4f\n", r_s, r_h);
-
-			if (r_s < pf->poss[i].fut.band.lo ||
-			    r_s > pf->poss[i].fut.band.hi) {
-				return false;
-			}
+			ratio = (soft + hard) / nav;
+			lo = pf->poss[i].fut.band.lo;
+			hi = pf->poss[i].fut.band.hi;
 			break;
+		}
+
+		if (ratio < lo || ratio > hi) {
+			return false;
 		}
 	}
 	return true;
@@ -378,7 +381,7 @@ fprint_trades_fixml(pf_t pf, FILE *whither)
 	return;
 }
 
-static void
+static void __attribute__((unused))
 fprint_info(pf_t pf, FILE *whither)
 {
 	/* traverse the soft pos's to emit trades */
@@ -711,8 +714,6 @@ read_pf(FILE *whence)
 	pf_t res = NULL;
 	char *line = NULL;
 	size_t len;
-	ssize_t nrd;
-	size_t csz = 0;
 
 	/* read line by line */
 	if (whence == NULL) {
@@ -721,7 +722,7 @@ read_pf(FILE *whence)
 
 	res = calloc(1, sizeof(*res) + 4 * sizeof(*res->poss));
 
-	while ((nrd = getline(&line, &len, whence)) != -1) {
+	while (getline(&line, &len, whence) != -1) {
 		posty_t pty = __parse_posty(line);
 		pos_t p = res->poss + res->nposs;
 
@@ -784,15 +785,20 @@ data_complete_p(pf_t pf)
  * FUT name ccy pos fbid fask fstl rbid rask rstl lo tgt hi fee
  * CASH name ccy soft_pos hard_pos bid ask stl lo tgt hi soft_fee hard_fee
  */
+#if defined __INTEL_COMPILER
+# pragma warning (disable:593)
+#endif	/* __INTEL_COMPILER */
 #include "durst-clo.h"
 #include "durst-clo.c"
+#if defined __INTEL_COMPILER
+# pragma warning (default:593)
+#endif	/* __INTEL_COMPILER */
 
 static void
 __work(pf_t pf, enum enum_outfmt of)
 {
 	double new_nav = 0.0;
 	double old_nav;
-	double old_old_nav;
 	size_t step = 0;
 	const size_t max_steps = 10;
 
@@ -804,7 +810,6 @@ __work(pf_t pf, enum enum_outfmt of)
 	reco_poss_reset(pf);
 
 	do {
-		old_old_nav = old_nav;
 		old_nav = new_nav;
 		reba_relanav(pf, old_nav);
 
