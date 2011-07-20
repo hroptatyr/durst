@@ -21,6 +21,9 @@
 #else  /* !DEBUG_FLAG */
 # define URS_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
+#if !defined UNUSED
+# define UNUSED(x)	__attribute__((unused)) x
+#endif	/* !UNUSED */
 
 #define countof(x)	(sizeof(x) / sizeof(*x))
 
@@ -54,6 +57,7 @@ struct pos_s {
 struct pf_s {
 	/* hard */
 	struct __val_s val;
+	const_pfack_4217_t bccy;
 
 	size_t nposs;
 	struct pos_s poss[];
@@ -66,16 +70,7 @@ pos_soft_val(pos_t p)
 {
 	switch (p->ty) {
 	case POSTY_FUT:
-#if 0
-		if (p->fut.term.soft == 0.0) {
-			/* we need a soft val first */
-			p->fut.term.soft = urs_fut_value(&p->fut);
-		}
-		return p->fut.base.soft =
-			p->fut.term.soft * p->fut.val_fac;
-#else
 		return p->fut.base.soft = p->fut.term.soft = 0.0;
-#endif
 	case POSTY_CASH:
 		return p->cash.base.soft =
 			p->cash.term.soft / p->cash.s_mkt.stl;
@@ -111,6 +106,7 @@ compute_pf_val(pf_t pf)
 		pf->val.soft += pos_soft_val(pf->poss + i);
 		pf->val.hard += pos_hard_val(pf->poss + i);
 	}
+	URS_DEBUG("pf_val() soft %.6f hard %.6f\n", pf->val.soft, pf->val.hard);
 	return pf->val.soft + pf->val.hard;
 }
 
@@ -138,6 +134,10 @@ reba_relanav_pos(pos_t pos, double nav)
 {
 	switch (pos->ty) {
 	default:
+		break;
+
+	case POSTY_CASH:
+		urs_cash_relanav(&pos->cash, nav);
 		break;
 
 	case POSTY_FUT:
@@ -307,6 +307,8 @@ fprint_trades(pf_t pf, FILE *whither)
 		switch (p->ty) {
 		case POSTY_CASH: {
 			double d = p->cash.term.hard - p->cash.hard_ini;
+			double ds = p->cash.term.soft - p->cash.soft_ini;
+
 			if (d > 0.0) {
 				fprintf(whither, "CLEAR\t%.4f\t%s\n",
 					d, p->cash.hdr.sym);
@@ -314,6 +316,19 @@ fprint_trades(pf_t pf, FILE *whither)
 				fprintf(whither, "CLEAR\t%.4f\t%s\n",
 					d, p->cash.hdr.sym);
 			}
+
+			if (p->cash.tccy == pf->bccy) {
+				break;
+			}
+
+			if (ds > 0.0) {
+				fprintf(whither, "BUY\t%.4f\t%s\n",
+					p->cash.term.soft, p->cash.tccy->sym);
+			} else if (ds < 0.0) {
+				fprintf(whither, "SELL\t%.4f\t%s\n",
+					-p->cash.term.soft, p->cash.tccy->sym);
+			}
+			break;
 		}
 		case POSTY_FUT: {
 			if (p->fut.pos.soft > 0.0 &&
@@ -451,25 +466,26 @@ reco_poss(pf_t pf)
 }
 
 static void
-reco_poss_step(pf_t pf)
+reco_poss_step(pf_t UNUSED(pf))
 {
 /* go through all cash positions and gather any softs left over from
  * rebalancing, book it into the soft account of the cash position. */
+#if 0
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
 		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
 			p->cash.soft_ini = p->cash.term.soft;
 			p->cash.hard_ini = p->cash.term.hard;
-			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
-			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
 		}
 	}
+#endif
 	return;
 }
 
 static void
-reco_poss_reset(pf_t pf)
+reco_poss_reset(pf_t UNUSED(pf))
 {
+#if 0
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
 		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
@@ -477,6 +493,7 @@ reco_poss_reset(pf_t pf)
 			p->cash.term.hard = p->cash.hard_ini;
 		}
 	}
+#endif
 	return;
 }
 
@@ -495,14 +512,26 @@ set_base_ccy_fut(pf_t pf, const_pfack_4217_t ccy, double val_fac)
 static void
 set_base_currency(pf_t pf, const_pfack_4217_t ccy)
 {
+	urs_cash_pos_t bp;
+
 	/* start out by setting all CCY future position factors to 1.0 */
 	set_base_ccy_fut(pf, ccy, 1.0);
+
+	/* find the base currency cash position */
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+		if (p->ty == POSTY_CASH && p->cash.tccy == ccy) {
+			bp = &p->cash;
+			break;
+		}
+	}
 
 	/* find the currency in question, otherwise create a position */
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
 		if (p->ty == POSTY_CASH && p->cash.tccy != ccy) {
 			set_base_ccy_fut(pf, p->cash.tccy, p->cash.s_mkt.stl);
+			p->cash.bp = bp;
 		}
 	}
 
@@ -516,6 +545,7 @@ set_base_currency(pf_t pf, const_pfack_4217_t ccy)
 				p->fut.band.hi = 0.0;
 		}
 	}
+	pf->bccy = ccy;
 	return;
 }
 

@@ -34,6 +34,17 @@ struct __cash_pos_s {
 
 	/* band, if regarded as asset, use -1 if not */
 	struct __wei_s band;
+
+	/* pointer to the base currency, for bookings */
+	urs_cash_pos_t bp;
 };
+
+/* compute cash values (in base currency units) */
+DECLF double urs_cash_value(urs_cash_pos_t fp);
+/* rebalance cash positions */
+DECLF void urs_cash_relanav(urs_cash_pos_t cp, const double nav);
+
+/* in terms */
+DECLF double urs_cash_setl(urs_cash_pos_t fp);
 
 #endif	/* INCLUDED_urs_cash_h_ */
