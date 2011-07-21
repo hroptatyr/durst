@@ -33,7 +33,6 @@ AM_INIT_AUTOMAKE([foreign parallel-tests])
 if test -z "${CFLAGS}"; then
 	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function"
 fi
-
 ## the build chain
 AC_PROG_CC([icc gcc cc])
 AC_PROG_CC_C99
