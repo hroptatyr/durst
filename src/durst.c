@@ -86,10 +86,8 @@ pos_hard_val(pos_t p)
 {
 	switch (p->ty) {
 	case POSTY_FUT:
-		p->fut.base.hard =
+		return p->fut.base.hard =
 			p->fut.term.hard * p->fut.val_fac;
-		/* we assume reconciliation later */
-		return 0.0;
 	case POSTY_CASH:
 		return p->cash.base.hard =
 			p->cash.term.hard / p->cash.s_mkt.stl;
@@ -334,7 +332,7 @@ fprint_trades(pf_t pf, FILE *whither)
 			}
 			break;
 		}
-		case POSTY_FUT: {
+		case POSTY_FUT:
 			if (p->fut.pos.soft > 0.0 &&
 			    p->fut.pos.hard < 0.0) {
 				fprintf(whither, "SHORT_BUY\t%.4f\t%s\n",
@@ -350,7 +348,16 @@ fprint_trades(pf_t pf, FILE *whither)
 				fprintf(whither, "SHORT_SELL\t%.4f\t%s\n",
 					-p->fut.pos.soft, p->fut.hdr.sym);
 			}
-		}
+
+			if (p->fut.term.hard != 0.0) {
+				fprintf(whither, "CLEAR\t%.4f\t%s\n",
+					p->fut.term.hard, p->fut.ccy->sym);
+			}
+			if (p->fut.term.soft != 0.0) {
+				fprintf(whither, "CLEAR\t%.4f\t%s\n",
+					p->fut.term.soft, p->fut.ccy->sym);
+			}
+			break;
 		default:
 			break;
 		}
@@ -502,9 +509,6 @@ reco_poss_thaw(pf_t pf)
 			p->cash.term.soft = p->cash.soft_ini;
 			p->cash.term.hard = p->cash.hard_ini;
 			p->cash.forex = p->cash.forex_ini;
-
-			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
-			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
 		}
 	}
 	return;
@@ -519,6 +523,21 @@ reco_poss_reset(pf_t pf)
 			p->cash.term.soft = p->cash.soft_ini;
 			p->cash.term.hard = p->cash.hard_ini;
 			p->cash.forex = 0.0;
+		}
+	}
+	return;
+}
+
+static void __attribute__((unused))
+reco_poss(pf_t pf)
+{
+/* go through all cash positions and gather any softs left over from
+ * rebalancing, book it into the soft account of the cash position. */
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
+			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
+			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
 		}
 	}
 	return;
