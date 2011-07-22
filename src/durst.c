@@ -197,7 +197,7 @@ reba_relanav(pf_t pf, double nav)
 	for (size_t i = 0; i < pf->nposs; i++) {
 		/* the nav we give here is relative to the ccy of the pos */
 		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
-		double tnav = nav * cp->s_mkt.stl;
+		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
 		reba_relanav_pos(pf->poss + i, tnav);
 	}
 	return;
@@ -252,8 +252,9 @@ soft %.4f\thard %.4f\tfx %.4f\t%.6e v %.6e\n",
 
 	case POSTY_FUT: {
 		urs_cash_pos_t cp = find_cash_pos(pf, pos);
-		double tnav = nav * cp->s_mkt.stl;
-		double ex = (pos->fut.pos.hard + pos->fut.pos.soft) / tnav;
+		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
+		double ex = cp
+			? (pos->fut.pos.hard + pos->fut.pos.soft) / tnav : 0.0;
 
 		fprintf(whither, "FUT %s\t\
 %.4f (%.4f)\t* %.4f\t@ %.4f/%.4f\t\
@@ -589,6 +590,7 @@ set_base_currency(pf_t pf, const_pfack_4217_t ccy)
 			p->fut.band.lo =
 				p->fut.band.med =
 				p->fut.band.hi = 0.0;
+			p->fut.val_fac = -1.0;
 		}
 	}
 	pf->bccy = ccy;
