@@ -87,7 +87,7 @@ pos_hard_val(pos_t p)
 	switch (p->ty) {
 	case POSTY_FUT:
 		return p->fut.base.hard =
-			p->fut.term.hard * p->fut.val_fac;
+			p->fut.term.hard / p->fut.val_fac;
 	case POSTY_CASH:
 		return p->cash.base.hard =
 			p->cash.term.hard / p->cash.s_mkt.stl;
