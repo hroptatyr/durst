@@ -165,6 +165,7 @@ urs_fut_relanav(urs_fut_pos_t fp, const double nav)
 		return;
 	}
 
+	URS_DEBUG("%s reba %.6f\n", fp->hdr.sym, nav);
 	for (double dpos = 0.0, dpr = -1.0, opr = 0.0; dpr != opr;) {
 		double v, nv;
 		double err = 0.0;
