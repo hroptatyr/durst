@@ -30,7 +30,6 @@ struct __fut_pos_s {
 	/* rebalancing result, error cash is now booked in
 	 * term.hard and base.hard */
 	const_pfack_4217_t ccy;
-	double reba_soft;
 };
 
 DECLF double urs_fut_value(urs_fut_pos_t fp);

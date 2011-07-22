@@ -20,14 +20,21 @@ struct __cash_pos_s {
 	 * 0 otherwise */
 	int dir;
 
-	/* characteristics, track soft and hard positions */
+	/* characteristics, track soft and hard positions,
+	 * we distinguish forex positions here as well because we must
+	 * not introduce instruments ourselves, as long as we don't do
+	 * FX positions anyway.
+	 * a forex long position would mean, buy the currency in question,
+	 * debitting the base currency position, short vice versa */
 	struct __val_s term;
 	struct __val_s base;
+	double forex;
 	double soft_fee;
 	double hard_fee;
 
 	double soft_ini;
 	double hard_ini;
+	double forex_ini;
 
 	/* keep track of navs */
 	double term_nav;

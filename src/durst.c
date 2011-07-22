@@ -71,9 +71,11 @@ pos_soft_val(pos_t p)
 	switch (p->ty) {
 	case POSTY_FUT:
 		return p->fut.base.soft = p->fut.term.soft = 0.0;
-	case POSTY_CASH:
-		return p->cash.base.soft =
-			p->cash.term.soft / p->cash.s_mkt.stl;
+	case POSTY_CASH: {
+		double b_s = p->cash.term.soft / p->cash.s_mkt.stl;
+		double b_fx = p->cash.forex / p->cash.s_mkt.stl;
+		return (p->cash.base.soft = b_s) + b_fx;
+	}
 	default:
 		return 0.0;
 	}
@@ -205,13 +207,6 @@ reba_relanav(pf_t pf, double nav)
 
 
 /* test setup */
-#if 0
-FUT	GI	USD	100	400	190.80	191.20	190.90	0	0	0	0.49	0.50	0.51	1.8
-FUT	CL2	USD	100	2900	22.64	22.66	22.66	0	0	0	0.48	0.50	0.51	1.8
-FUT	XAU	USD	100	100	1533.20	1533.40	1532.0	0	0	0	0.00	0.01	0.1	3.0
-CASH	USD	USD	0.0	440000.0	1.41025	1.41035	1.41020	-1	-1	-1	0.0	0.0001
-#endif
-
 static size_t nmy4217 = 0;
 static struct pfack_4217_s my4217[16];
 
@@ -243,12 +238,19 @@ fprint_pos(pf_t pf, pos_t pos, double nav, FILE *whither)
 	default:
 		break;
 
-	case POSTY_CASH:
-		fprintf(whither, "CASH %s\tsoft %2.4f\thard %2.4f\n",
+	case POSTY_CASH: {
+		double tcv = urs_cash_value(&pos->cash);
+		double nav = pf->val.soft + pf->val.hard;
+
+		fprintf(whither, "CASH %s\t\
+soft %.4f\thard %.4f\tfx %.4f\t%.6e v %.6e\n",
 			pos->cash.hdr.sym,
 			pos->cash.term.soft,
-			pos->cash.term.hard);
+			pos->cash.term.hard,
+			pos->cash.forex,
+			tcv / nav, pos->cash.band.med);
 		break;
+	}
 
 	case POSTY_FUT: {
 		urs_cash_pos_t cp = find_cash_pos(pf, pos);
@@ -257,7 +259,7 @@ fprint_pos(pf_t pf, pos_t pos, double nav, FILE *whither)
 
 		fprintf(whither, "FUT %s\t\
 %.4f (%.4f)\t* %.4f\t@ %.4f/%.4f\t\
-soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\n",
+soft %.4f\thard %.4f\t%.6e v %.6e\n",
 			pos->fut.hdr.sym,
 			pos->fut.pos.hard,
 			pos->fut.pos.soft,
@@ -266,7 +268,6 @@ soft %.4f\thard %.4f\tctr_soft %.4f\t%.6e v %.6e\n",
 			pos->fut.f_mkt.ask,
 			pos->fut.term.soft,
 			pos->fut.term.hard,
-			pos->fut.reba_soft,
 			ex, pos->fut.band.med);
 		break;
 	}
@@ -284,7 +285,7 @@ fprint_poss(pf_t pf, FILE *whither)
 	for (size_t i = 0; i < pf->nposs; i++) {
 		if (pf->poss[i].ty == POSTY_CASH) {
 			fprintf(whither, "\
-TERM\t%s\tsoft %2.4f\thard %2.4f\tnav %.4f\n",
+TERM\t%s\tsoft %.4f\thard %.4f\tnav %.4f\n",
 				pf->poss[i].cash.tccy->sym,
 				pf->val.soft * pf->poss[i].cash.s_mkt.stl,
 				pf->val.hard * pf->poss[i].cash.s_mkt.stl,
@@ -307,7 +308,7 @@ fprint_trades(pf_t pf, FILE *whither)
 		switch (p->ty) {
 		case POSTY_CASH: {
 			double d = p->cash.term.hard - p->cash.hard_ini;
-			double ds = p->cash.term.soft - p->cash.soft_ini;
+			double dfx = p->cash.forex;
 
 			if (d > 0.0) {
 				fprintf(whither, "CLEAR\t%.4f\t%s\n",
@@ -317,16 +318,19 @@ fprint_trades(pf_t pf, FILE *whither)
 					d, p->cash.hdr.sym);
 			}
 
-			if (p->cash.tccy == pf->bccy) {
+			/* do not buy or sell base currency?
+			 * at the moment we use the criterion, if it's not
+			 * balanced do fuckall */
+			if (p->cash.band.med < 0.0) {
 				break;
 			}
 
-			if (ds > 0.0) {
+			if (dfx > 0.0) {
 				fprintf(whither, "BUY\t%.4f\t%s\n",
-					p->cash.term.soft, p->cash.tccy->sym);
-			} else if (ds < 0.0) {
+					dfx, p->cash.tccy->sym);
+			} else if (dfx < 0.0) {
 				fprintf(whither, "SELL\t%.4f\t%s\n",
-					-p->cash.term.soft, p->cash.tccy->sym);
+					-dfx, p->cash.tccy->sym);
 			}
 			break;
 		}
@@ -364,6 +368,8 @@ fprint_trades_fixml(pf_t pf, FILE *whither)
 		switch (p->ty) {
 		case POSTY_CASH: {
 			double d = p->cash.term.hard - p->cash.hard_ini;
+			double dfx = p->cash.forex;
+
 			if (d > 0.0) {
 				fprintf(whither, "CLEAR\t%.4f\t%s\n",
 					d, p->cash.hdr.sym);
@@ -371,6 +377,15 @@ fprint_trades_fixml(pf_t pf, FILE *whither)
 				fprintf(whither, "CLEAR\t%.4f\t%s\n",
 					d, p->cash.hdr.sym);
 			}
+
+			if (dfx > 0.0) {
+				fprintf(whither, "BUY\t%.4f\t%s\n",
+					dfx, p->cash.tccy->sym);
+			} else if (dfx < 0.0) {
+				fprintf(whither, "SELL\t%.4f\t%s\n",
+					-dfx, p->cash.tccy->sym);
+			}
+			break;
 		}
 		case POSTY_FUT: {
 			if (p->fut.pos.soft > 0.0 &&
@@ -425,10 +440,15 @@ reco_poss_ccy_s(pf_t pf, const_pfack_4217_t ccy)
 
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
-		if (p->ty != POSTY_FUT || p->fut.ccy->cod != ccy->cod) {
-			continue;
+
+		switch (p->ty) {
+		case POSTY_FUT:
+			if (p->fut.ccy->cod == ccy->cod) {
+				/* futures account for nothing */
+			}
+		default:
+			break;
 		}
-		sum += p->fut.reba_soft;
 	}
 	return sum;
 }
@@ -442,22 +462,47 @@ reco_poss_ccy_h(pf_t pf, const_pfack_4217_t ccy)
 
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
-		if (p->ty != POSTY_FUT || p->fut.ccy->cod != ccy->cod) {
-			continue;
+
+		switch (p->ty) {
+		case POSTY_FUT:
+			if (p->fut.ccy->cod == ccy->cod) {
+				sum += p->fut.term.hard;
+			}
+		default:
+			break;
 		}
-		sum += p->fut.term.hard;
 	}
 	return sum;
 }
 
 static void
-reco_poss(pf_t pf)
+reco_poss_freeze(pf_t pf)
 {
 /* go through all cash positions and gather any softs left over from
  * rebalancing, book it into the soft account of the cash position. */
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
 		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
+			p->cash.soft_ini = p->cash.term.soft;
+			p->cash.hard_ini = p->cash.term.hard;
+			p->cash.forex_ini = p->cash.forex;
+		}
+	}
+	return;
+}
+
+static void
+reco_poss_thaw(pf_t pf)
+{
+/* go through all cash positions and gather any softs left over from
+ * rebalancing, book it into the soft account of the cash position. */
+	for (size_t i = 0; i < pf->nposs; i++) {
+		pos_t p = pf->poss + i;
+		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
+			p->cash.term.soft = p->cash.soft_ini;
+			p->cash.term.hard = p->cash.hard_ini;
+			p->cash.forex = p->cash.forex_ini;
+
 			p->cash.term.soft += reco_poss_ccy_s(pf, p->cash.tccy);
 			p->cash.term.hard += reco_poss_ccy_h(pf, p->cash.tccy);
 		}
@@ -466,34 +511,16 @@ reco_poss(pf_t pf)
 }
 
 static void
-reco_poss_step(pf_t UNUSED(pf))
+reco_poss_reset(pf_t pf)
 {
-/* go through all cash positions and gather any softs left over from
- * rebalancing, book it into the soft account of the cash position. */
-#if 0
-	for (size_t i = 0; i < pf->nposs; i++) {
-		pos_t p = pf->poss + i;
-		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
-			p->cash.soft_ini = p->cash.term.soft;
-			p->cash.hard_ini = p->cash.term.hard;
-		}
-	}
-#endif
-	return;
-}
-
-static void
-reco_poss_reset(pf_t UNUSED(pf))
-{
-#if 0
 	for (size_t i = 0; i < pf->nposs; i++) {
 		pos_t p = pf->poss + i;
 		if (p->ty == POSTY_CASH && p->cash.tccy != NULL) {
 			p->cash.term.soft = p->cash.soft_ini;
 			p->cash.term.hard = p->cash.hard_ini;
+			p->cash.forex = 0.0;
 		}
 	}
-#endif
 	return;
 }
 
@@ -703,6 +730,9 @@ __parse_cash(urs_cash_pos_t cp, const char *line)
 	line = __skip_behind_tab(p);
 	cp->hard_ini = cp->term.hard = read_tab_double(p = line);
 
+	/* set the fx slot for convenience */
+	cp->forex_ini = 0.0;
+
 	/* frob bid */
 	line = __skip_behind_tab(p);
 	cp->s_mkt.bid = read_tab_double(p = line);
@@ -834,7 +864,7 @@ __work(pf_t pf, enum enum_outfmt of)
 
 	URS_DEBUG("rebalancing ...\n");
 
-	reco_poss_step(pf);
+	reco_poss_freeze(pf);
 	/* cash assets constitute the nav as well, option? */
 	old_nav = new_nav = compute_pf_val(pf);
 	reco_poss_reset(pf);
@@ -843,7 +873,7 @@ __work(pf_t pf, enum enum_outfmt of)
 		old_nav = new_nav;
 		reba_relanav(pf, old_nav);
 
-		reco_poss_step(pf);
+		reco_poss_freeze(pf);
 		/* cash assets constitute the nav as well, option? */
 		new_nav = compute_pf_val(pf);
 		reco_poss_reset(pf);
@@ -852,7 +882,10 @@ __work(pf_t pf, enum enum_outfmt of)
 	} while (abs(old_nav - new_nav) > 0.01 && step++ < max_steps);
 
 	/* reconciliation, could be a CLI option */
-	reco_poss(pf);
+	reco_poss_thaw(pf);
+	/* now after thawing iterate over the portfolio to get the cash
+	 * balances right */
+	reba_relanav(pf, new_nav);
 	fprint_poss(pf, stderr);
 
 	/* print a list of trades so we can settle this crap */
