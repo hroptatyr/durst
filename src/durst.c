@@ -166,8 +166,10 @@ reba_relanav_check(pf_t pf, double nav)
 			hard = pf->poss[i].cash.base.hard;
 
 			ratio = (soft + hard) / nav;
-			lo = pf->poss[i].cash.band.lo;
-			hi = pf->poss[i].cash.band.hi;
+			if ((lo = pf->poss[i].cash.band.lo) < 0.0 ||
+			    (hi = pf->poss[i].cash.band.hi) < 0.0) {
+				continue;
+			}
 			break;
 
 		case POSTY_FUT:
