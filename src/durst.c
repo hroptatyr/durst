@@ -30,6 +30,8 @@
 typedef struct pos_s *pos_t;
 typedef struct pf_s *pf_t;
 
+typedef struct __nav_pos_s *urs_nav_pos_t;
+
 /* specific guys */
 struct fx_pos_s {
 	struct __hdr_s base;
@@ -38,12 +40,33 @@ struct fx_pos_s {
 	struct __mkt_s rate;
 };
 
+struct __nav_pos_s {
+	/* ident stuff */
+	struct __hdr_s hdr;
+
+	/* this currency */
+	const_pfack_4217_t tccy;
+
+	/* characteristics, track soft and hard positions,
+	 * we distinguish forex positions here as well because we must
+	 * not introduce instruments ourselves, as long as we don't do
+	 * FX positions anyway.
+	 * a forex long position would mean, buy the currency in question,
+	 * debitting the base currency position, short vice versa */
+	struct __val_s base;
+
+	double soft_ini;
+	double hard_ini;
+};
+
 typedef enum {
 	POSTY_UNK,
 	POSTY_FUT,
 	POSTY_CASH,
 	POSTY_FX,
 	POSTY_FXFW,
+	POSTY_STK,
+	POSTY_NAV,
 } posty_t;
 
 struct pos_s {
@@ -51,12 +74,14 @@ struct pos_s {
 	union {
 		struct __fut_pos_s fut;
 		struct __cash_pos_s cash;
+		struct __nav_pos_s nav;
 	};
 };
 
 struct pf_s {
 	/* hard */
 	struct __val_s val;
+	struct __val_s val_ini;
 	const_pfack_4217_t bccy;
 
 	size_t nposs;
@@ -605,12 +630,19 @@ __parse_posty(const char *s)
 	static const char c[] = "CASH";
 	static const char f[] = "FUT";
 	static const char fx[] = "FX";
+	static const char stk[] = "STK";
+	static const char nav[] = "NAV";
+
 	if (strncmp(s, c, sizeof(c) - 1) == 0) {
 		return POSTY_CASH;
 	} else if (strncmp(s, f, sizeof(f) - 1) == 0) {
 		return POSTY_FUT;
 	} else if (strncmp(s, fx, sizeof(fx) - 1) == 0) {
 		return POSTY_FX;
+	} else if (strncmp(s, stk, sizeof(stk) - 1) == 0) {
+		return POSTY_STK;
+	} else if (strncmp(s, nav, sizeof(nav) - 1) == 0) {
+		return POSTY_NAV;
 	}
 	return POSTY_UNK;
 }
@@ -791,6 +823,37 @@ __parse_cash(urs_cash_pos_t cp, const char *line)
 	return 0;
 }
 
+static int
+__parse_nav(urs_nav_pos_t np, const char *line)
+{
+/* CASH name soft_pos hard_pos bid ask stl lo med hi soft_fee hard_fee */
+	const char *p;
+
+	p = __skip_behind_tab(line);
+
+	/* frob sym, we just set it to NAV */
+	line = p;
+	np->hdr.sym = strdup("NAV");
+
+	/* frob ccy */
+	p = __skip_behind_tab(line);
+	if ((np->tccy = __find_4217(line)) == NULL) {
+		const_pfack_4217_t res = my4217 + nmy4217++;
+		memcpy((char*)res, line, 3);
+		*((char*)res + 3) = '\0';
+		np->tccy = res;
+	}
+
+	/* frob soft */
+	line = p;
+	np->soft_ini = np->base.soft = read_tab_double(p = line);
+
+	/* frob hard */
+	line = __skip_behind_tab(p);
+	np->hard_ini = np->base.hard = read_tab_double(p = line);
+	return 0;
+}
+
 static pf_t
 read_pf(FILE *whence)
 {
@@ -809,18 +872,25 @@ read_pf(FILE *whence)
 		posty_t pty = __parse_posty(line);
 		pos_t p = res->poss + res->nposs;
 
-		switch (pty) {
+		switch ((p->ty = pty)) {
 		case POSTY_CASH:
 			if (__parse_cash(&p->cash, line) == 0) {
-				p->ty = pty;
 				res->nposs++;
 			}
 			break;
 		case POSTY_FUT:
 			if (__parse_fut(&p->fut, line) == 0) {
-				p->ty = pty;
 				res->nposs++;
 			}
+			break;
+		case POSTY_NAV:
+			if (__parse_nav(&p->nav, line) == 0) {
+				res->nposs++;
+				res->val_ini.soft = p->nav.base.soft;
+				res->val_ini.hard = p->nav.base.hard;
+			}
+			break;
+		default:
 			break;
 		}
 
