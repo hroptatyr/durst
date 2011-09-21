@@ -124,12 +124,15 @@ pos_hard_val(pos_t p)
 static double
 compute_pf_val(pf_t pf)
 {
-	pf->val.soft = 0.0;
-	pf->val.hard = 0.0;
+	pf->val = pf->val_ini;
 
 	for (size_t i = 0; i < pf->nposs; i ++) {
-		pf->val.soft += pos_soft_val(pf->poss + i);
-		pf->val.hard += pos_hard_val(pf->poss + i);
+		if (pf->val_ini.hard == 0.0 || pf->poss[i].ty != POSTY_CASH) {
+			/* only add stuff up if the portfolio hasn't
+			 * had a hard-set NAV */
+			pf->val.soft += pos_soft_val(pf->poss + i);
+			pf->val.hard += pos_hard_val(pf->poss + i);
+		}
 	}
 	URS_DEBUG("pf_val() soft %.6f hard %.6f\n", pf->val.soft, pf->val.hard);
 	return pf->val.soft + pf->val.hard;
