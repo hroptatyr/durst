@@ -3,7 +3,6 @@ dnl Autoconf startup.
 dnl -------------------------------------------------------------------------
 
 AC_PREREQ([2.63])
-m4_define([GIT_VERSION_GEN], [dnl
 pushdef([version], [m4_esyscmd([./git-version-gen])])dnl
 ifelse([]version[], [], [0.1.1], []version[])[]dnl
 popdef([version])dnl
