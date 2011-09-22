@@ -8,9 +8,18 @@
 #else  /* !DEBUG_FLAG */
 # define URS_DEBUG(args...)
 #endif	/* DEBUG_FLAG */
+#if !defined UNUSED
+# define UNUSED(x)	__attribute__((unused)) x
+#endif	/* !UNUSED */
 
 #define FEE_AWARE	1
 #define ROLAND_EXP	1
+
+#if defined ROLAND_EXP
+# define RE_UNUSED(x)	UNUSED(x)
+#else
+# define RE_UNUSED(x)	x
+#endif	/* !ROLAND_EXP */
 
 /* We employ newton's method, as follows:
  * We assume last day's rebalancing was successful and the following holds
@@ -55,7 +64,7 @@
  * well, the other way around, we can't rebalance futures whose quotes
  * are closely similar to the spot prices, as the derivative might vanish */
 
-static double
+static double __attribute__((unused))
 __asgn(double x, double v)
 {
 	if (x == 0.0) {
@@ -70,7 +79,7 @@ __asgn(double x, double v)
 }
 
 static double
-fut_value_fun(urs_fut_pos_t fp, double contracts)
+fut_value_fun(urs_fut_pos_t RE_UNUSED(fp), double RE_UNUSED(contracts))
 {
 #if !defined ROLAND_EXP
 	return (fp->f_mkt.stl - fp->s_mkt.stl) * contracts * fp->mult;
@@ -85,6 +94,7 @@ fut_value(urs_fut_pos_t fp)
 	return fut_value_fun(fp, fp->pos.soft + fp->pos.hard);
 }
 
+#if !defined ROLAND_EXP
 static double
 fut_deriv(urs_fut_pos_t fp, double dpos)
 {
@@ -110,7 +120,6 @@ fut_weight(urs_fut_pos_t fp, double dpos, double nav)
 #endif	/* FEE_AWARE */
 }
 
-#if !defined ROLAND_EXP
 static double
 fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 {
@@ -120,7 +129,7 @@ fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
 }
 #else
 static double
-fut_newt_step(urs_fut_pos_t fp, double dpos, double nav)
+fut_newt_step(urs_fut_pos_t fp, double RE_UNUSED(dpos), double nav)
 {
 	return fp->band.med * nav - fp->pos.hard;
 }
@@ -163,13 +172,11 @@ urs_fut_relanav(urs_fut_pos_t fp, const double nav)
 
 	URS_DEBUG("%s reba %.6f\n", fp->hdr.sym, nav);
 	for (double dpos = 0.0, dpr = -1.0, opr = 0.0; dpr != opr;) {
-		double v, nv;
+		double nv;
 		double err = 0.0;
 		struct __gross_cost_s cost;
 
 		dpos = fp->pos.soft = fut_newt_step(fp, dpos, nav + err);
-		/* value in base currency */
-		v = fut_value(fp) / fp->val_fac;
 		/* round the whole shebang and compute trades */
 		opr = dpr;
 		dpr = fp->pos.soft = fut_round(fp);
@@ -178,11 +185,8 @@ urs_fut_relanav(urs_fut_pos_t fp, const double nav)
 
 		err = tgt - (nv + (cost.fee + cost.spread) * fp->val_fac);
 		fp->term.hard = -cost.fee;
-		URS_DEBUG("%.4f %.4f  r %.4f %.4f  f %.4f s %.4f  e %.4f\n",
-			  dpos, v, dpr, nv, cost.fee, cost.spread, err);
-
-		/* leave a note about total soft cash for this transaction */
-		fp->reba_soft = -(fut_value_fun(fp, dpr) + cost.spread);
+		URS_DEBUG("-> %.4f  r %.4f %.4f  f %.4f s %.4f  e %.4f\n",
+			  dpos, dpr, nv, cost.fee, cost.spread, err);
 #if defined ROLAND_EXP
 		break;
 #endif	/* ROLAND_EXP */

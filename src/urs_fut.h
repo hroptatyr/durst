@@ -35,4 +35,7 @@ struct __fut_pos_s {
 DECLF double urs_fut_value(urs_fut_pos_t fp);
 DECLF void urs_fut_relanav(urs_fut_pos_t fp, const double nav);
 
+/* in terms */
+DECLF double urs_fut_setl(urs_fut_pos_t fp);
+
 #endif	/* INCLUDED_urs_fut_h_ */
