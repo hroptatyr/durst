@@ -195,8 +195,8 @@ reba_relanav_check(pf_t pf, double nav)
 		case POSTY_CASH:
 			/* convert nav to term_nav, needed for the rolandique
 			 * definition of exposures */
-			soft = pf->poss[i].cash.base.soft;
-			hard = pf->poss[i].cash.base.hard;
+			soft = pf->poss[i].cash.term.soft;
+			hard = pf->poss[i].cash.term.hard;
 
 			ratio = (soft + hard) / tnav;
 			if ((lo = pf->poss[i].cash.band.lo) < 0.0 ||
