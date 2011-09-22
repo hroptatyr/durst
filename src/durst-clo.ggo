@@ -1,0 +1,18 @@
+args ""
+package "durst"
+usage "durst [options]"
+description "Daily rebalancing tool.
+Input is read from stdin and must follow the specs:
+  FUT name ccy csize soft_pos hard_pos fb fa fs rb ra rs lo tgt hi fee
+  STK name ccy soft_pos hard_pos cb ca cs rb ra rs lo tgt hi fee
+  CASH name ccy soft_pos hard_pos bid ask stl lo tgt hi soft_fee hard_fee
+where fb/fa/fs are future bid/ask/settlement quotes, cb/ca/cs are
+stock bid/ask/settlement quotes, and rb/ra/rs are reference bid/ask/settles"
+
+option "base" b "Base currency" string optional
+option "nav-only" n "No rebalancing, compute the nav and exit" optional
+option "outfmt" f "Output orders in format" values="csv","fixml"
+	default="csv" enum optional
+option "lever" l "Multiply levers with this constant" double
+	default="1.0" optional
+

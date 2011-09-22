@@ -3,7 +3,6 @@ dnl Autoconf startup.
 dnl -------------------------------------------------------------------------
 
 AC_PREREQ([2.63])
-m4_define([GIT_VERSION_GEN], [dnl
 pushdef([version], [m4_esyscmd([./git-version-gen])])dnl
 ifelse([]version[], [], [0.1.1], []version[])[]dnl
 popdef([version])dnl
@@ -34,7 +33,6 @@ AM_INIT_AUTOMAKE([foreign parallel-tests])
 if test -z "${CFLAGS}"; then
 	CFLAGS="-g -O3 -Wall -Wunused -Wunused-function"
 fi
-
 ## the build chain
 AC_PROG_CC([icc gcc cc])
 AC_PROG_CC_C99

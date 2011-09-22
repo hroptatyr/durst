@@ -24,6 +24,10 @@ EXTRA_durst_SOURCES = iso4217.c iso4217.h
 %.c %.h: %.ggo
 	gengetopt -l -i $< -F $*
 
+## ggo rule
+%.c: %.ggo
+	gengetopt -l -i $< -F $*
+
 # 
 # Help the developers get nice post-processed source files
 
