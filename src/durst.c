@@ -178,9 +178,14 @@ reba_relanav_pos(pos_t pos, double nav)
 static bool
 reba_relanav_check(pf_t pf, double nav)
 {
+	bool res = true;
+
 	for (size_t i = 0; i < pf->nposs; i++) {
 		double lo, hi;
 		double ratio;
+		/* the nav we give here is relative to the ccy of the pos */
+		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
+		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
 
 		switch (pf->poss[i].ty) {
 			double hard, soft;
@@ -193,7 +198,7 @@ reba_relanav_check(pf_t pf, double nav)
 			soft = pf->poss[i].cash.base.soft;
 			hard = pf->poss[i].cash.base.hard;
 
-			ratio = (soft + hard) / nav;
+			ratio = (soft + hard) / tnav;
 			if ((lo = pf->poss[i].cash.band.lo) < 0.0 ||
 			    (hi = pf->poss[i].cash.band.hi) < 0.0) {
 				continue;
@@ -204,17 +209,22 @@ reba_relanav_check(pf_t pf, double nav)
 			soft = pf->poss[i].fut.pos.soft;
 			hard = pf->poss[i].fut.pos.hard;
 
-			ratio = (soft + hard) / nav;
+			ratio = (soft + hard) / tnav;
 			lo = pf->poss[i].fut.band.lo;
 			hi = pf->poss[i].fut.band.hi;
 			break;
 		}
 
 		if (ratio < lo || ratio > hi) {
-			return false;
+			URS_DEBUG("NEED REBA %s: %.8g < %.8g < %.8g NOT\n",
+				  pf->poss[i].fut.hdr.sym, lo, ratio, hi);
+			res = false;
+#if !defined DEBUG_FLAG
+			break;
+#endif	/* DEBUG_FLAG */
 		}
 	}
-	return true;
+	return res;
 }
 
 static void
