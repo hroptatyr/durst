@@ -760,6 +760,13 @@ __parse_fut(urs_fut_pos_t fp, const char *line)
 	line = __skip_behind_tab(p);
 	fp->band.hi = read_tab_double(p = line);
 
+	/* convenience check */
+	if (fp->band.lo > fp->band.hi) {
+		double tmp = fp->band.lo;
+		fp->band.lo = fp->band.hi;
+		fp->band.hi = tmp;
+	}
+
 	/* frob fee */
 	line = __skip_behind_tab(p);
 	fp->fee = read_tab_double(p = line);
