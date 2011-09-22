@@ -6,8 +6,12 @@ Input is read from stdin and must follow the specs:
   FUT name ccy csize soft_pos hard_pos fb fa fs rb ra rs lo tgt hi fee
   STK name ccy soft_pos hard_pos cb ca cs rb ra rs lo tgt hi fee
   CASH name ccy soft_pos hard_pos bid ask stl lo tgt hi soft_fee hard_fee
+  NAV ccy soft_pos hard_pos
 where fb/fa/fs are future bid/ask/settlement quotes, cb/ca/cs are
-stock bid/ask/settlement quotes, and rb/ra/rs are reference bid/ask/settles"
+stock bid/ask/settlement quotes, and rb/ra/rs are reference bid/ask/settles.
+
+If the NAV is given then this will be used for specs that are quoted in
+units per NAV."
 
 option "base" b "Base currency" string optional
 option "nav-only" n "No rebalancing, compute the nav and exit" optional
