@@ -186,9 +186,9 @@ reba_relanav_check(pf_t pf, double nav)
 		/* the nav we give here is relative to the ccy of the pos */
 		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
 		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
+		double hard, soft;
 
 		switch (pf->poss[i].ty) {
-			double hard, soft;
 		default:
 			continue;
 
@@ -216,8 +216,10 @@ reba_relanav_check(pf_t pf, double nav)
 		}
 
 		if (ratio < lo || ratio > hi) {
-			URS_DEBUG("NEED REBA %s: %.8g < %.8g < %.8g NOT\n",
-				  pf->poss[i].fut.hdr.sym, lo, ratio, hi);
+			URS_DEBUG("\
+NEED REBA %s (%.4f/%.4f): %.8g < %.8g < %.8g NOT\n",
+				  pf->poss[i].fut.hdr.sym,
+				  soft, hard, lo, ratio, hi);
 			res = false;
 #if !defined DEBUG_FLAG
 			break;
