@@ -158,18 +158,33 @@ find_cash_pos(pf_t pf, pos_t pos)
 
 /* future rebalancing relative to the NAV of the portfolio */
 static int
-reba_relanav_pos(pos_t pos, double nav)
+reba_relanav_pos(pos_t pos, double tnav)
 {
 	switch (pos->ty) {
+		double hard, soft;
+		double ratio;
+		double lo, hi;
 	default:
 		break;
 
 	case POSTY_CASH:
-		urs_cash_relanav(&pos->cash, nav);
+		soft = pos->cash.term.soft;
+		hard = pos->cash.term.hard;
+		ratio = (soft + hard) / tnav;
+		if ((lo = pos->cash.band.lo) < 0.0 ||
+		    (hi = pos->cash.band.hi) < 0.0 ||
+		    ratio < lo || ratio > hi) {
+			urs_cash_relanav(&pos->cash, tnav);
+		}
 		break;
 
 	case POSTY_FUT:
-		urs_fut_relanav(&pos->fut, nav);
+		soft = pos->fut.pos.soft;
+		hard = pos->fut.pos.hard;
+		ratio = (soft + hard) / tnav;
+		if (ratio < lo || ratio > hi) {
+			urs_fut_relanav(&pos->fut, tnav);
+		}
 		break;
 	}
 	return 0;
