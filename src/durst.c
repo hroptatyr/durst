@@ -158,18 +158,33 @@ find_cash_pos(pf_t pf, pos_t pos)
 
 /* future rebalancing relative to the NAV of the portfolio */
 static int
-reba_relanav_pos(pos_t pos, double nav)
+reba_relanav_pos(pos_t pos, double tnav)
 {
 	switch (pos->ty) {
+		double hard, soft;
+		double ratio;
+		double lo, hi;
 	default:
 		break;
 
 	case POSTY_CASH:
-		urs_cash_relanav(&pos->cash, nav);
+		soft = pos->cash.term.soft;
+		hard = pos->cash.term.hard;
+		ratio = (soft + hard) / tnav;
+		if ((lo = pos->cash.band.lo) < 0.0 ||
+		    (hi = pos->cash.band.hi) < 0.0 ||
+		    ratio < lo || ratio > hi) {
+			urs_cash_relanav(&pos->cash, tnav);
+		}
 		break;
 
 	case POSTY_FUT:
-		urs_fut_relanav(&pos->fut, nav);
+		soft = pos->fut.pos.soft;
+		hard = pos->fut.pos.hard;
+		ratio = (soft + hard) / tnav;
+		if (ratio < lo || ratio > hi) {
+			urs_fut_relanav(&pos->fut, tnav);
+		}
 		break;
 	}
 	return 0;
@@ -178,22 +193,27 @@ reba_relanav_pos(pos_t pos, double nav)
 static bool
 reba_relanav_check(pf_t pf, double nav)
 {
+	bool res = true;
+
 	for (size_t i = 0; i < pf->nposs; i++) {
 		double lo, hi;
 		double ratio;
+		/* the nav we give here is relative to the ccy of the pos */
+		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
+		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
+		double hard, soft;
 
 		switch (pf->poss[i].ty) {
-			double hard, soft;
 		default:
 			continue;
 
 		case POSTY_CASH:
 			/* convert nav to term_nav, needed for the rolandique
 			 * definition of exposures */
-			soft = pf->poss[i].cash.base.soft;
-			hard = pf->poss[i].cash.base.hard;
+			soft = pf->poss[i].cash.term.soft;
+			hard = pf->poss[i].cash.term.hard;
 
-			ratio = (soft + hard) / nav;
+			ratio = (soft + hard) / tnav;
 			if ((lo = pf->poss[i].cash.band.lo) < 0.0 ||
 			    (hi = pf->poss[i].cash.band.hi) < 0.0) {
 				continue;
@@ -204,17 +224,24 @@ reba_relanav_check(pf_t pf, double nav)
 			soft = pf->poss[i].fut.pos.soft;
 			hard = pf->poss[i].fut.pos.hard;
 
-			ratio = (soft + hard) / nav;
+			ratio = (soft + hard) / tnav;
 			lo = pf->poss[i].fut.band.lo;
 			hi = pf->poss[i].fut.band.hi;
 			break;
 		}
 
 		if (ratio < lo || ratio > hi) {
-			return false;
+			URS_DEBUG("\
+NEED REBA %s (%.4f/%.4f): %.8g < %.8g < %.8g NOT\n",
+				  pf->poss[i].fut.hdr.sym,
+				  soft, hard, lo, ratio, hi);
+			res = false;
+#if !defined DEBUG_FLAG
+			break;
+#endif	/* DEBUG_FLAG */
 		}
 	}
-	return true;
+	return res;
 }
 
 static void
@@ -749,6 +776,13 @@ __parse_fut(urs_fut_pos_t fp, const char *line)
 	/* frob hi */
 	line = __skip_behind_tab(p);
 	fp->band.hi = read_tab_double(p = line);
+
+	/* convenience check */
+	if (fp->band.lo > fp->band.hi) {
+		double tmp = fp->band.lo;
+		fp->band.lo = fp->band.hi;
+		fp->band.hi = tmp;
+	}
 
 	/* frob fee */
 	line = __skip_behind_tab(p);
