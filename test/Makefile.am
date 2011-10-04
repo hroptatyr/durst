@@ -4,7 +4,13 @@
 LANG=C
 LC_ALL=C
 
-TESTS = cash-reba.durst fut-reba.durst futcash-reba.durst fut-no-ccy.durst
+TESTS =
+TESTS += cash-reba.durst
+TESTS += fut-reba.durst
+TESTS += futcash-reba.durst
+TESTS += fut-no-ccy.durst
+TESTS += miss-quo.durst
+
 TEST_EXTENSIONS = .durst .truffle
 DURST_LOG_COMPILER = $(top_builddir)/src/durst
 AM_DURST_LOG_FLAGS = <
