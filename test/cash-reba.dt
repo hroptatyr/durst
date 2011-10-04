@@ -1,0 +1,15 @@
+## -*- shell-script -*-
+
+TOOL=durst
+CMDLINE=""
+
+## STDIN
+stdin="cash-reba.durst"
+
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+SELL	41899.4553	USD
+EOF
+
+## cash-reba.dt ends here

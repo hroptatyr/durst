@@ -1,0 +1,19 @@
+## -*- shell-script -*-
+
+TOOL=durst
+CMDLINE=""
+
+## STDIN
+stdin="futcash-reba.durst"
+
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+SELL	66890.2034	USD
+BUY	7604.0000	XAU
+CLEAR	-13687.2000	USD
+BUY	1345.0000	XAG
+CLEAR	-2421.0000	USD
+EOF
+
+## futcash-reba.dt ends here

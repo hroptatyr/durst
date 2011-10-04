@@ -1,0 +1,14 @@
+## -*- shell-script -*-
+
+TOOL=durst
+CMDLINE=""
+
+## STDIN
+stdin="fut-no-ccy.durst"
+
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+EOF
+
+## fut-no-ccy.dt ends here
