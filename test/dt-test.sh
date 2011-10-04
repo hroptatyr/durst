@@ -85,9 +85,17 @@ eval "${TOOL}" "${CMDLINE}" \
 
 if test -r "${stdout}"; then
 	diff -u "${stdout}" "${tool_stdout}" || fail=1
+elif test -s "${tool_stdout}"; then
+	echo
+	echo "test stdout was:"
+	cat "${tool_stdout}" >&2
 fi
 if test -r "${stderr}"; then
 	diff -u "${stderr}" "${tool_stderr}" || fail=1
+elif test -s "${tool_stderr}"; then
+	echo
+	echo "test stderr was:"
+	cat "${tool_stderr}" >&2
 fi
 
 myexit ${fail}
