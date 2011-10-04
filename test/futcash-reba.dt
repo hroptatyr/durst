@@ -1,0 +1,14 @@
+## -*- shell-script -*-
+
+TOOL=durst
+CMDLINE=""
+
+## STDIN
+stdin="futcash-reba.durst"
+
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+EOF
+
+## futcash-reba.dt ends here
