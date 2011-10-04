@@ -4,12 +4,15 @@ TOOL=durst
 CMDLINE=""
 
 ## STDIN
-stdin=$(mktemp)
-cat "fut-reba.durst" > "${stdin}"
+stdin="fut-reba.durst"
 
 ## STDOUT
 stdout=$(mktemp)
 cat > "${stdout}" <<EOF
+BUY	7588.0000	XAU
+CLEAR	-13658.4000	USD
+BUY	1368.0000	XAG
+CLEAR	-2462.4000	USD
 EOF
 
 ## fut-reba.dt ends here

@@ -4,8 +4,7 @@ TOOL=durst
 CMDLINE=""
 
 ## STDIN
-stdin=$(mktemp)
-cat "fut-no-ccy.durst" > "${stdin}"
+stdin="fut-no-ccy.durst"
 
 ## STDOUT
 stdout=$(mktemp)
