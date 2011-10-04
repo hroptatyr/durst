@@ -13,7 +13,6 @@ DT_LOG_COMPILER = $(srcdir)/dt-test.sh
 AM_DT_LOG_FLAGS = --builddir $(top_builddir)/src --hash sha1sum
 LOG_COMPILER = echo
 
-TESTS =
 TESTS += cash-reba.dt
 EXTRA_DIST += cash-reba.dt cash-reba.durst
 
