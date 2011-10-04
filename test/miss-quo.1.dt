@@ -1,0 +1,15 @@
+## -*- shell-script -*-
+
+TOOL=durst
+CMDLINE=""
+
+## STDIN
+stdin=$(mktemp)
+cat "miss-quo.1.durst" > "${stdin}"
+
+## STDOUT
+stdout=$(mktemp)
+cat > "${stdout}" <<EOF
+EOF
+
+## miss-quo.1.dt ends here
