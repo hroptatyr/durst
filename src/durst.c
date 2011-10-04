@@ -197,6 +197,9 @@ reba_relanav_pos(pos_t pos, double tnav)
 		soft = pos->cash.term.soft;
 		hard = pos->cash.term.hard;
 		ratio = (soft + hard) / tnav;
+		lo = pos->cash.band.lo;
+		hi = pos->cash.band.hi;
+
 		if ((lo = pos->cash.band.lo) < 0.0 ||
 		    (hi = pos->cash.band.hi) < 0.0 ||
 		    ratio < lo || ratio > hi) {
@@ -208,6 +211,9 @@ reba_relanav_pos(pos_t pos, double tnav)
 		soft = pos->fut.pos.soft;
 		hard = pos->fut.pos.hard;
 		ratio = (soft + hard) / tnav;
+		lo = pos->fut.band.lo;
+		hi = pos->fut.band.hi;
+
 		if (ratio < lo || ratio > hi) {
 			urs_fut_relanav(&pos->fut, tnav);
 		}
