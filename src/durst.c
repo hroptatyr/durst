@@ -91,6 +91,32 @@ struct pf_s {
 
 /* posty specific accessors */
 static double
+pos_soft(pos_t p)
+{
+	switch (p->ty) {
+	case POSTY_FUT:
+		return p->fut.pos.soft;
+	case POSTY_CASH:
+		return p->cash.term.soft;
+	default:
+		return 0.0;
+	}
+}
+
+static double
+pos_hard(pos_t p)
+{
+	switch (p->ty) {
+	case POSTY_FUT:
+		return p->fut.pos.hard;
+	case POSTY_CASH:
+		return p->cash.term.hard;
+	default:
+		return 0.0;
+	}
+}
+
+static double
 pos_soft_val(pos_t p)
 {
 	switch (p->ty) {
@@ -171,6 +197,9 @@ reba_relanav_pos(pos_t pos, double tnav)
 		soft = pos->cash.term.soft;
 		hard = pos->cash.term.hard;
 		ratio = (soft + hard) / tnav;
+		lo = pos->cash.band.lo;
+		hi = pos->cash.band.hi;
+
 		if ((lo = pos->cash.band.lo) < 0.0 ||
 		    (hi = pos->cash.band.hi) < 0.0 ||
 		    ratio < lo || ratio > hi) {
@@ -182,6 +211,9 @@ reba_relanav_pos(pos_t pos, double tnav)
 		soft = pos->fut.pos.soft;
 		hard = pos->fut.pos.hard;
 		ratio = (soft + hard) / tnav;
+		lo = pos->fut.band.lo;
+		hi = pos->fut.band.hi;
+
 		if (ratio < lo || ratio > hi) {
 			urs_fut_relanav(&pos->fut, tnav);
 		}
@@ -248,14 +280,21 @@ static void
 reba_relanav(pf_t pf, double nav)
 {
 	if (reba_relanav_check(pf, nav)) {
+		URS_DEBUG("NO REBA NEEDED\n");
 		return;
 	}
 
+	URS_DEBUG("NEED REBA\n");
 	for (size_t i = 0; i < pf->nposs; i++) {
 		/* the nav we give here is relative to the ccy of the pos */
 		urs_cash_pos_t cp = find_cash_pos(pf, pf->poss + i);
 		double tnav = cp ? nav * cp->s_mkt.stl : 0.0;
 		reba_relanav_pos(pf->poss + i, tnav);
+		URS_DEBUG("reba'd %s to %.4f (%.4f) (tnav %.4f)\n",
+			  pf->poss[i].fut.hdr.sym,
+			  pos_hard(pf->poss + i),
+			  pos_soft(pf->poss + i),
+			  tnav);
 	}
 	return;
 }
