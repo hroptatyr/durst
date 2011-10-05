@@ -1,9 +1,29 @@
 #!/bin/sh
 
-CLINE=$(getopt -o _ --long builddir:,srcdir:,hash: -n "${0}" -- "${@}")
+CLINE=$(getopt -o h \
+	--long help,builddir:,srcdir:,hash:,husk: -n "${0}" -- "${@}")
 eval set -- "${CLINE}"
+
+usage()
+{
+	cat <<EOF 
+$(basename ${0}) [OPTION] TEST_FILE
+
+--builddir=DIR  specify where tools can be found
+--srcdir=DIR    specify where the source tree resides
+--hash=PROG     use hasher PROG instead of md5sum
+--husk=PROG     use husk around tool, e.g. 'valgrind -v'
+
+-h, --help      print a short help screen
+EOF
+}
+
 while true; do
 	case "${1}" in
+	"-h"|"--help")
+		usage
+		exit 0
+		;;
 	"--builddir")
 		builddir="${2}"
 		shift 2
@@ -104,4 +124,4 @@ fi
 
 myexit ${fail}
 
-## truf-test.sh ends here
+## dt-test.sh ends here
