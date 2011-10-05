@@ -774,7 +774,7 @@ __parse_fut(urs_fut_pos_t fp, const char *line)
 
 	/* frob soft_pos */
 	line = __skip_behind_tab(p);
-	fp->pos.hard = read_tab_double(p = line);
+	fp->pos.soft = read_tab_double(p = line);
 
 	/* frob hard_pos */
 	line = __skip_behind_tab(p);
@@ -972,9 +972,11 @@ read_pf(FILE *whence)
 
 		/* check whether to resize */
 		if (res->nposs % 4 == 0) {
-			res = realloc(
-				res, sizeof(*res) +
-				(res->nposs + 4) * sizeof(*res->poss));
+			size_t old = res->nposs * sizeof(*res->poss);
+			size_t new = old + 4 * sizeof(*res->poss);
+
+			res = realloc(res, sizeof(*res) + new);
+			memset((char*)res + sizeof(*res) + old, 0, new - old);
 		}
 	}
 	free(line);
