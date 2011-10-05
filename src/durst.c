@@ -774,7 +774,7 @@ __parse_fut(urs_fut_pos_t fp, const char *line)
 
 	/* frob soft_pos */
 	line = __skip_behind_tab(p);
-	fp->pos.hard = read_tab_double(p = line);
+	fp->pos.soft = read_tab_double(p = line);
 
 	/* frob hard_pos */
 	line = __skip_behind_tab(p);
