@@ -16,6 +16,10 @@ while true; do
 		hash="${2}"
 		shift 2
 		;;
+	"--husk")
+		HUSK="${2}"
+		shift 2
+		;;
 	--)
 		shift
 		break
@@ -79,7 +83,7 @@ fi
 
 srcdir=$(readlink -e "${srcdir}")
 cd "${srcdir}"
-eval "${TOOL}" "${CMDLINE}" \
+eval "${HUSK}" "${TOOL}" "${CMDLINE}" \
 	< "${stdin:-/dev/null}" \
 	> "${tool_stdout}" 2> "${tool_stderr}" || myexit 1
 
