@@ -972,9 +972,11 @@ read_pf(FILE *whence)
 
 		/* check whether to resize */
 		if (res->nposs % 4 == 0) {
-			res = realloc(
-				res, sizeof(*res) +
-				(res->nposs + 4) * sizeof(*res->poss));
+			size_t old = res->nposs * sizeof(*res->poss);
+			size_t new = old + 4 * sizeof(*res->poss);
+
+			res = realloc(res, sizeof(*res) + new);
+			memset((char*)res + sizeof(*res) + old, 0, new - old);
 		}
 	}
 	free(line);
