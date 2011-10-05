@@ -55,7 +55,11 @@ done
 fail=0
 tool_stdout=$(mktemp)
 tool_stderr=$(mktemp)
-pwd=$(pwd)
+
+if test -z "${srcdir}"; then
+	srcdir=$(dirname "${0}")
+fi
+srcdir=$(readlink -e "${srcdir}")
 
 ## source the check
 . "${1}" || fail=1
@@ -83,8 +87,22 @@ myexit()
 	rm_if_not_src "${stdout}" "${srcdir}"
 	rm_if_not_src "${stderr}" "${srcdir}"
 	rm -f -- "${tool_stdout}" "${tool_stderr}"
-	cd "${pwd}"
 	exit ${1:-1}
+}
+
+find_file()
+{
+	file="${1}"
+
+	if test -z "${file}"; then
+		:
+	elif test -r "${file}"; then
+		echo "${file}"
+	elif test -r "${builddir}/${file}"; then
+		readlink -e "${builddir}/${file}"
+	elif test -r "${srcdir}/${file}"; then
+		readlink -e "${srcdir}/${file}"
+	fi
 }
 
 ## check if everything's set
@@ -94,15 +112,13 @@ if test -z "${TOOL}"; then
 fi
 
 ## set finals
-if test -z "${srcdir}"; then
-	srcdir=$(dirname "${0}")
-fi
 if test -x "${builddir}/${TOOL}"; then
 	TOOL=$(readlink -e "${builddir}/${TOOL}")
 fi
+stdin=$(find_file "${stdin}")
+stdout=$(find_file "${stdout}")
+stderr=$(find_file "${stderr}")
 
-srcdir=$(readlink -e "${srcdir}")
-cd "${srcdir}"
 eval "${HUSK}" "${TOOL}" "${CMDLINE}" \
 	< "${stdin:-/dev/null}" \
 	> "${tool_stdout}" 2> "${tool_stderr}" || myexit 1
