@@ -55,7 +55,6 @@ done
 fail=0
 tool_stdout=$(mktemp)
 tool_stderr=$(mktemp)
-pwd=$(pwd)
 
 if test -z "${srcdir}"; then
 	srcdir=$(dirname "${0}")
@@ -88,7 +87,6 @@ myexit()
 	rm_if_not_src "${stdout}" "${srcdir}"
 	rm_if_not_src "${stderr}" "${srcdir}"
 	rm -f -- "${tool_stdout}" "${tool_stderr}"
-	cd "${pwd}"
 	exit ${1:-1}
 }
 
